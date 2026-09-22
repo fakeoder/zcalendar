@@ -126,15 +126,18 @@
                   <span data-i18n="customSlug"></span>
                   <span class="optional-badge" data-i18n="optionalShort"></span>
                 </span>
-                <input
-                  id="slugInput"
-                  class="text-input"
-                  type="text"
-                  maxlength="40"
-                  autocomplete="off"
-                  spellcheck="false"
-                  data-i18n-placeholder="slugPlaceholder"
-                />
+                <span class="input-with-status">
+                  <input
+                    id="slugInput"
+                    class="text-input"
+                    type="text"
+                    maxlength="40"
+                    autocomplete="off"
+                    spellcheck="false"
+                    data-i18n-placeholder="slugPlaceholder"
+                  />
+                  <span id="slugStatus" class="alias-status" hidden></span>
+                </span>
                 <span class="field-hint" data-i18n="slugHint"></span>
               </label>
             </div>
@@ -147,10 +150,12 @@
           <section id="resultPanel" class="result-panel" hidden>
             <span class="badge success" data-i18n="created"></span>
 
+            <p id="manageWarning" class="warn-box" data-i18n="manageWarningStrong"></p>
+
             <label class="field">
               <span class="field-label" data-i18n="manageLink"></span>
               <input id="resultManage" class="text-input" type="text" readonly />
-              <span id="manageWarning" class="field-hint warn-text" data-i18n="manageWarning"></span>
+              <span class="field-hint" data-i18n="manageLinkOnceHint"></span>
             </label>
             <div class="result-actions">
               <button id="copyManageBtn" class="btn ghost" type="button">
@@ -159,18 +164,15 @@
               <button id="openManagerBtn" class="btn ghost" type="button">
                 <span data-i18n="openManager"></span>
               </button>
-            </div>
-
-            <label class="field">
-              <span class="field-label" data-i18n="subscriptionUrl"></span>
-              <input id="resultIcs" class="text-input" type="text" readonly />
-              <span class="field-hint" data-i18n="subscriptionHint"></span>
-            </label>
-            <div class="result-actions">
-              <button id="copyIcsBtn" class="btn ghost" type="button">
-                <span id="copyIcsLabel" data-i18n="copyLink"></span>
+              <button id="openManagerTabBtn" class="btn ghost" type="button">
+                <span data-i18n="openManagerTab"></span>
+              </button>
+              <button id="downloadQrBtn" class="btn ghost" type="button">
+                <span data-i18n="downloadQr"></span>
               </button>
             </div>
+
+            <p class="field-hint manage-ics-hint" data-i18n="manageIcsLaterHint"></p>
           </section>
 
           <p id="formError" class="form-error" role="alert" hidden></p>
@@ -194,6 +196,7 @@
     </footer>
 
     <script src="/site.js"></script>
+    <script src="/vendor/qrcode.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

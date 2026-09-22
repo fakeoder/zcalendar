@@ -161,6 +161,14 @@
             <button id="resetManageBtn" class="btn ghost small" type="button">
               <span data-i18n="resetManageLink"></span>
             </button>
+
+            <div class="section-head danger-head">
+              <h2 data-i18n="dangerZone"></h2>
+            </div>
+            <p class="muted section-hint" data-i18n="deleteCalendarHint"></p>
+            <button id="deleteCalendarBtn" class="btn danger small" type="button">
+              <span data-i18n="deleteCalendar"></span>
+            </button>
           </div>
         </section>
       </div>
@@ -224,27 +232,91 @@
             </span>
             <textarea id="eventDesc" class="text-input" rows="2" maxlength="2000"></textarea>
           </label>
-          <details class="advanced-options">
-            <summary>
-              <span class="summary-copy">
-                <span class="summary-text" data-i18n="rrule"></span>
-                <span class="summary-meta" data-i18n="rruleHint"></span>
-              </span>
-              <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </summary>
-            <div class="advanced-body">
-              <input
-                id="eventRrule"
-                class="text-input"
-                type="text"
-                maxlength="500"
-                spellcheck="false"
-                data-i18n-placeholder="rrulePlaceholder"
-              />
+          <div class="rrule-editor" id="rruleEditor">
+            <div class="field">
+              <span class="field-label" data-i18n="rrule"></span>
+              <div class="rrule-row">
+                <select id="rruleFreq" class="text-input rrule-freq">
+                  <option value="" data-i18n="rruleNever"></option>
+                  <option value="DAILY" data-i18n="rruleDaily"></option>
+                  <option value="WEEKLY" data-i18n="rruleWeekly"></option>
+                  <option value="MONTHLY" data-i18n="rruleMonthly"></option>
+                  <option value="YEARLY" data-i18n="rruleYearly"></option>
+                </select>
+                <label class="rrule-interval" id="rruleIntervalWrap" hidden>
+                  <span data-i18n="rruleEvery"></span>
+                  <input
+                    id="rruleInterval"
+                    class="text-input rrule-interval-input"
+                    type="number"
+                    min="1"
+                    max="999"
+                    value="1"
+                  />
+                  <span id="rruleIntervalUnit" data-i18n="rruleWeeks"></span>
+                </label>
+              </div>
             </div>
-          </details>
+
+            <div class="rrule-days" id="rruleDays" hidden>
+              <button type="button" data-day="MO">MO</button>
+              <button type="button" data-day="TU">TU</button>
+              <button type="button" data-day="WE">WE</button>
+              <button type="button" data-day="TH">TH</button>
+              <button type="button" data-day="FR">FR</button>
+              <button type="button" data-day="SA">SA</button>
+              <button type="button" data-day="SU">SU</button>
+            </div>
+
+            <div class="rrule-ends" id="rruleEnds" hidden>
+              <label class="check-field">
+                <input type="radio" name="rruleEndMode" value="never" checked />
+                <span data-i18n="rruleEndNever"></span>
+              </label>
+              <label class="check-field">
+                <input type="radio" name="rruleEndMode" value="count" />
+                <span data-i18n="rruleEndAfter"></span>
+                <input
+                  id="rruleCount"
+                  class="text-input rrule-count-input"
+                  type="number"
+                  min="1"
+                  max="999"
+                  value="10"
+                  disabled
+                />
+                <span data-i18n="rruleTimes"></span>
+              </label>
+              <label class="check-field">
+                <input type="radio" name="rruleEndMode" value="until" />
+                <span data-i18n="rruleEndOn"></span>
+                <input id="rruleUntil" class="text-input rrule-until-input" type="date" disabled />
+              </label>
+            </div>
+
+            <details class="advanced-options rrule-raw" id="rruleRawDetails">
+              <summary>
+                <span class="summary-copy">
+                  <span class="summary-text" data-i18n="rruleAdvanced"></span>
+                  <span class="summary-meta" data-i18n="rruleHint"></span>
+                </span>
+                <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </summary>
+              <div class="advanced-body">
+                <input
+                  id="eventRrule"
+                  class="text-input"
+                  type="text"
+                  maxlength="500"
+                  spellcheck="false"
+                  data-i18n-placeholder="rrulePlaceholder"
+                />
+                <span id="rruleRawError" class="field-hint warn-text" data-i18n="rruleRawInvalid" hidden></span>
+              </div>
+            </details>
+          </div>
           <p id="eventError" class="form-error" role="alert" hidden></p>
           <div class="modal-actions">
             <button id="deleteEventBtn" class="btn ghost small" type="button" hidden>
@@ -256,6 +328,44 @@
             </button>
             <button id="saveEventBtn" class="btn primary small" type="submit">
               <span id="saveEventLabel" data-i18n="save"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="deleteCalModal" class="modal-overlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <h3 data-i18n="deleteCalendar"></h3>
+          <button id="closeDeleteCalModal" class="icon-btn small" type="button" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        <form id="deleteCalForm" class="modal-body">
+          <p class="warn-box" data-i18n="deleteCalendarWarning"></p>
+          <label class="field">
+            <span class="field-label" data-i18n="deleteCalendarConfirmLabel"></span>
+            <input
+              id="deleteCalConfirm"
+              class="text-input"
+              type="text"
+              autocomplete="off"
+              data-i18n-placeholder="deleteCalendarConfirmPlaceholder"
+            />
+            <span class="field-hint" data-i18n="deleteCalendarConfirmHint"></span>
+          </label>
+          <p id="deleteCalError" class="form-error" role="alert" hidden></p>
+          <div class="modal-actions">
+            <span class="modal-actions-spacer"></span>
+            <button id="cancelDeleteCalBtn" class="btn ghost small" type="button">
+              <span data-i18n="cancel"></span>
+            </button>
+            <button id="confirmDeleteCalBtn" class="btn danger small" type="submit" disabled>
+              <span id="confirmDeleteCalLabel" data-i18n="deleteForever"></span>
             </button>
           </div>
         </form>

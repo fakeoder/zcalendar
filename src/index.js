@@ -481,6 +481,46 @@ async function handleGetCalendarBySlug(request, env, slug) {
   });
 }
 
+async function handleSlugCheck(request, env) {
+  const url = new URL(request.url);
+  const raw = url.searchParams.get('slug') || '';
+  await ensureSchema(env);
+
+  if (raw === '') {
+    return json({ available: true, slug: '', generated: true }, 200);
+  }
+  const slugResult = normalizeSlug(raw);
+  if (slugResult.error) {
+    return json(
+      { available: false, error: slugResult.error, code: 'slug_invalid', slug: raw },
+      200
+    );
+  }
+  const row = await env.DB.prepare('SELECT 1 FROM calendars WHERE slug = ?')
+    .bind(slugResult.slug)
+    .first();
+  return json({ available: !row, slug: slugResult.slug }, 200);
+}
+
+async function handleDeleteCalendar(request, env, calendarId) {
+  const auth = await requireSession(request, env, { mutate: true });
+  if (auth.error) return auth.error;
+
+  const calendar = await getCalendarById(env, calendarId);
+  if (!calendar) return json({ error: 'Not found', code: 'not_found' }, 404);
+  if (calendar.id !== auth.session.calendarId) {
+    return json({ error: 'Forbidden', code: 'forbidden' }, 403);
+  }
+
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM subscriptions WHERE calendar_id = ?').bind(calendarId),
+    env.DB.prepare('DELETE FROM management_tokens WHERE calendar_id = ?').bind(calendarId),
+    env.DB.prepare('DELETE FROM events WHERE calendar_id = ?').bind(calendarId),
+    env.DB.prepare('DELETE FROM calendars WHERE id = ?').bind(calendarId),
+  ]);
+  return json({ ok: true });
+}
+
 async function handlePatchCalendar(request, env, calendarId) {
   const auth = await requireSession(request, env, { mutate: true });
   if (auth.error) return auth.error;
@@ -1036,6 +1076,10 @@ async function routeApi(request, env, url) {
     return handleCreateCalendar(request, env);
   }
 
+  if (pathname === '/api/slug-check' && method === 'GET') {
+    return handleSlugCheck(request, env);
+  }
+
   if (pathname.startsWith('/api/calendars/')) {
     const segs = pathname.slice('/api/calendars/'.length).split('/').filter(Boolean);
     if (segs.length === 1 && method === 'GET') {
@@ -1043,6 +1087,9 @@ async function routeApi(request, env, url) {
     }
     if (segs.length === 1 && method === 'PATCH') {
       return handlePatchCalendar(request, env, segs[0]);
+    }
+    if (segs.length === 1 && method === 'DELETE') {
+      return handleDeleteCalendar(request, env, segs[0]);
     }
     if (segs.length === 2 && segs[1] === 'events' && method === 'POST') {
       return handleCreateEvent(request, env, segs[0]);

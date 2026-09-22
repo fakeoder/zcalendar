@@ -36,12 +36,32 @@
     eventLocation: document.getElementById('eventLocation'),
     eventDesc: document.getElementById('eventDesc'),
     eventRrule: document.getElementById('eventRrule'),
+    rruleEditor: document.getElementById('rruleEditor'),
+    rruleFreq: document.getElementById('rruleFreq'),
+    rruleIntervalWrap: document.getElementById('rruleIntervalWrap'),
+    rruleInterval: document.getElementById('rruleInterval'),
+    rruleIntervalUnit: document.getElementById('rruleIntervalUnit'),
+    rruleDays: document.getElementById('rruleDays'),
+    rruleEnds: document.getElementById('rruleEnds'),
+    rruleCount: document.getElementById('rruleCount'),
+    rruleUntil: document.getElementById('rruleUntil'),
+    rruleRawDetails: document.getElementById('rruleRawDetails'),
+    rruleRawError: document.getElementById('rruleRawError'),
     eventError: document.getElementById('eventError'),
     deleteEventBtn: document.getElementById('deleteEventBtn'),
     closeEventModal: document.getElementById('closeEventModal'),
     cancelEventBtn: document.getElementById('cancelEventBtn'),
     saveEventLabel: document.getElementById('saveEventLabel'),
     saveEventBtn: document.getElementById('saveEventBtn'),
+    deleteCalendarBtn: document.getElementById('deleteCalendarBtn'),
+    deleteCalModal: document.getElementById('deleteCalModal'),
+    deleteCalForm: document.getElementById('deleteCalForm'),
+    deleteCalConfirm: document.getElementById('deleteCalConfirm'),
+    deleteCalError: document.getElementById('deleteCalError'),
+    confirmDeleteCalBtn: document.getElementById('confirmDeleteCalBtn'),
+    confirmDeleteCalLabel: document.getElementById('confirmDeleteCalLabel'),
+    cancelDeleteCalBtn: document.getElementById('cancelDeleteCalBtn'),
+    closeDeleteCalModal: document.getElementById('closeDeleteCalModal'),
     secretModal: document.getElementById('secretModal'),
     secretTitle: document.getElementById('secretTitle'),
     secretLabel: document.getElementById('secretLabel'),
@@ -436,6 +456,178 @@
     els.endHint.hidden = !allDay;
   }
 
+  const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+  const FREQ_UNITS = {
+    DAILY: 'rruleDays',
+    WEEKLY: 'rruleWeeks',
+    MONTHLY: 'rruleMonths',
+    YEARLY: 'rruleYears',
+  };
+  let selectedDays = new Set();
+
+  function parseRrule(raw) {
+    const text = String(raw || '').trim();
+    if (!text) {
+      return { freq: '', interval: 1, byday: [], endMode: 'never', count: 10, until: '' };
+    }
+    if (!/^FREQ=/i.test(text)) return null;
+    const state = {
+      freq: '',
+      interval: 1,
+      byday: [],
+      endMode: 'never',
+      count: 10,
+      until: '',
+    };
+    for (const part of text.split(';')) {
+      if (!part) continue;
+      const eq = part.indexOf('=');
+      if (eq < 1) return null;
+      const key = part.slice(0, eq).toUpperCase();
+      const value = part.slice(eq + 1);
+      if (key === 'FREQ') {
+        const freq = value.toUpperCase();
+        if (!FREQ_UNITS[freq]) return null;
+        state.freq = freq;
+      } else if (key === 'INTERVAL') {
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < 1 || n > 999) return null;
+        state.interval = n;
+      } else if (key === 'BYDAY') {
+        const days = value.split(',').map((d) => d.trim().toUpperCase());
+        for (const day of days) {
+          const m = day.match(/^(-?\d{1,2})?([A-Z]{2})$/);
+          if (!m || !WEEKDAYS.includes(m[2])) return null;
+        }
+        state.byday = days.map((d) => d.replace(/^-?\d{1,2}/, '')).filter((d, i, arr) => arr.indexOf(d) === i);
+      } else if (key === 'COUNT') {
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < 1 || n > 9999) return null;
+        state.endMode = 'count';
+        state.count = n;
+      } else if (key === 'UNTIL') {
+        if (!/^\d{8}$/.test(value)) return null;
+        state.endMode = 'until';
+        state.until = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
+      }
+    }
+    if (!state.freq) return null;
+    return state;
+  }
+
+  function buildRrule(state) {
+    if (!state.freq) return '';
+    const parts = [`FREQ=${state.freq}`];
+    if (state.interval > 1) parts.push(`INTERVAL=${state.interval}`);
+    if (state.freq === 'WEEKLY' && state.byday.length) {
+      const days = WEEKDAYS.filter((d) => state.byday.includes(d));
+      if (days.length) parts.push(`BYDAY=${days.join(',')}`);
+    }
+    if (state.endMode === 'count' && state.count >= 1) {
+      parts.push(`COUNT=${state.count}`);
+    } else if (state.endMode === 'until' && state.until) {
+      parts.push(`UNTIL=${state.until.replace(/-/g, '')}`);
+    }
+    return parts.join(';');
+  }
+
+  function currentRruleState() {
+    const freq = els.rruleFreq.value;
+    const endMode = (
+      els.rruleEnds.querySelector('input[name="rruleEndMode"]:checked') || { value: 'never' }
+    ).value;
+    const interval = Math.max(1, Math.min(999, Number(els.rruleInterval.value) || 1));
+    const count = Math.max(1, Math.min(999, Number(els.rruleCount.value) || 1));
+    return {
+      freq,
+      interval,
+      byday: WEEKDAYS.filter((d) => selectedDays.has(d)),
+      endMode,
+      count,
+      until: els.rruleUntil.value || '',
+    };
+  }
+
+  function setRruleRawFromState() {
+    const state = currentRruleState();
+    const raw = buildRrule(state);
+    els.eventRrule.value = raw;
+    els.rruleRawError.hidden = true;
+  }
+
+  function syncRruleControls() {
+    const freq = els.rruleFreq.value;
+    const hasFreq = Boolean(freq);
+    els.rruleIntervalWrap.hidden = !hasFreq;
+    els.rruleEnds.hidden = !hasFreq;
+    els.rruleDays.hidden = freq !== 'WEEKLY';
+    const unitKey = FREQ_UNITS[freq] || 'rruleWeeks';
+    els.rruleIntervalUnit.setAttribute('data-i18n', unitKey);
+    els.rruleIntervalUnit.textContent = t(unitKey);
+    site.translate(els.rruleIntervalWrap);
+    site.translate(els.rruleDays);
+
+    const endMode = (
+      els.rruleEnds.querySelector('input[name="rruleEndMode"]:checked') || { value: 'never' }
+    ).value;
+    els.rruleCount.disabled = endMode !== 'count';
+    els.rruleUntil.disabled = endMode !== 'until';
+  }
+
+  function applyRruleToControls(raw) {
+    const state = parseRrule(raw);
+    if (!state) {
+      els.rruleRawError.hidden = false;
+      return false;
+    }
+    els.rruleRawError.hidden = true;
+    els.rruleFreq.value = state.freq;
+    els.rruleInterval.value = String(state.interval);
+    selectedDays = new Set(state.byday);
+    els.rruleDays.querySelectorAll('[data-day]').forEach((btn) => {
+      btn.classList.toggle('active', selectedDays.has(btn.dataset.day));
+    });
+    const endRadio = els.rruleEnds.querySelector(
+      `input[name="rruleEndMode"][value="${state.endMode}"]`
+    );
+    if (endRadio) endRadio.checked = true;
+    els.rruleCount.value = String(state.count || 10);
+    els.rruleUntil.value = state.until || '';
+    syncRruleControls();
+    return true;
+  }
+
+  function resetRruleEditor(raw) {
+    selectedDays = new Set();
+    els.rruleRawDetails.open = false;
+    els.rruleRawError.hidden = true;
+    els.eventRrule.value = raw || '';
+    if (!applyRruleToControls(raw)) {
+      els.rruleFreq.value = '';
+      els.rruleInterval.value = '1';
+      els.rruleCount.value = '10';
+      els.rruleUntil.value = '';
+      const never = els.rruleEnds.querySelector('input[value="never"]');
+      if (never) never.checked = true;
+      syncRruleControls();
+      if (raw) els.rruleRawDetails.open = true;
+    }
+  }
+
+  function collectRruleForSave() {
+    if (els.rruleRawDetails.open) {
+      const raw = els.eventRrule.value.trim();
+      if (raw && !parseRrule(raw)) {
+        els.rruleRawError.hidden = false;
+        return null;
+      }
+      return raw;
+    }
+    const raw = buildRrule(currentRruleState());
+    els.eventRrule.value = raw;
+    return raw;
+  }
+
   function openEventModal(event) {
     editingId = event ? event.id : null;
     els.eventModalTitle.textContent = event ? t('editEvent') : t('newEvent');
@@ -455,7 +647,7 @@
       }
       els.eventLocation.value = event.location || '';
       els.eventDesc.value = event.description || '';
-      els.eventRrule.value = event.rrule || '';
+      resetRruleEditor(event.rrule || '');
       els.deleteEventBtn.hidden = false;
     } else {
       els.eventTitle.value = '';
@@ -466,7 +658,7 @@
       els.eventEnd.value = addOneDay(today.slice(0, 10));
       els.eventLocation.value = '';
       els.eventDesc.value = '';
-      els.eventRrule.value = '';
+      resetRruleEditor('');
       els.deleteEventBtn.hidden = true;
     }
     els.eventModal.hidden = false;
@@ -516,6 +708,12 @@
       }
     }
 
+    const rrule = collectRruleForSave();
+    if (rrule === null) {
+      showEventError(t('rruleInvalid'));
+      return;
+    }
+
     const payload = {
       title,
       all_day: allDay,
@@ -523,7 +721,7 @@
       end_at: endAt,
       location: els.eventLocation.value.trim(),
       description: els.eventDesc.value.trim(),
-      rrule: els.eventRrule.value.trim(),
+      rrule,
     };
 
     const saveLabel = els.saveEventLabel;
@@ -676,6 +874,51 @@
     }
   }
 
+  function openDeleteCalendarModal() {
+    els.deleteCalConfirm.value = '';
+    els.deleteCalError.hidden = true;
+    els.deleteCalError.textContent = '';
+    els.confirmDeleteCalBtn.disabled = true;
+    els.deleteCalModal.hidden = false;
+    els.deleteCalConfirm.focus();
+  }
+
+  function closeDeleteCalendarModal() {
+    els.deleteCalModal.hidden = true;
+    els.deleteCalConfirm.value = '';
+    els.confirmDeleteCalBtn.disabled = true;
+  }
+
+  function syncDeleteConfirmState() {
+    const ok = calendar && els.deleteCalConfirm.value.trim() === calendar.name;
+    els.confirmDeleteCalBtn.disabled = !ok;
+  }
+
+  async function deleteCalendar(event) {
+    event.preventDefault();
+    if (!calendar) return;
+    if (els.deleteCalConfirm.value.trim() !== calendar.name) {
+      els.deleteCalError.textContent = t('deleteCalendarMismatch');
+      els.deleteCalError.hidden = false;
+      return;
+    }
+    const label = els.confirmDeleteCalLabel;
+    const original = label.textContent;
+    label.textContent = t('deleting');
+    els.confirmDeleteCalBtn.disabled = true;
+    els.cancelDeleteCalBtn.disabled = true;
+    try {
+      await api(`/api/calendars/${encodeURIComponent(calendar.id)}`, { method: 'DELETE' });
+      window.location.href = '/?deleted=1';
+    } catch (error) {
+      els.deleteCalError.textContent = error.message || t('requestError');
+      els.deleteCalError.hidden = false;
+      label.textContent = original;
+      els.confirmDeleteCalBtn.disabled = false;
+      els.cancelDeleteCalBtn.disabled = false;
+    }
+  }
+
   els.tabs.forEach((button) => {
     button.addEventListener('click', () => setTab(button.dataset.tab));
   });
@@ -703,6 +946,42 @@
   els.subForm.addEventListener('submit', addSubscription);
   els.settingsForm.addEventListener('submit', saveSettings);
   els.resetManageBtn.addEventListener('click', resetManageLink);
+  els.deleteCalendarBtn.addEventListener('click', openDeleteCalendarModal);
+  els.cancelDeleteCalBtn.addEventListener('click', closeDeleteCalendarModal);
+  els.closeDeleteCalModal.addEventListener('click', closeDeleteCalendarModal);
+  els.deleteCalForm.addEventListener('submit', deleteCalendar);
+  els.deleteCalConfirm.addEventListener('input', syncDeleteConfirmState);
+  els.deleteCalModal.addEventListener('click', (event) => {
+    if (event.target === els.deleteCalModal) closeDeleteCalendarModal();
+  });
+  els.rruleFreq.addEventListener('change', () => {
+    syncRruleControls();
+    setRruleRawFromState();
+  });
+  els.rruleInterval.addEventListener('input', setRruleRawFromState);
+  els.rruleCount.addEventListener('input', setRruleRawFromState);
+  els.rruleUntil.addEventListener('input', setRruleRawFromState);
+  els.rruleEnds.addEventListener('change', () => {
+    syncRruleControls();
+    setRruleRawFromState();
+  });
+  els.rruleDays.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-day]');
+    if (!btn) return;
+    const day = btn.dataset.day;
+    if (selectedDays.has(day)) selectedDays.delete(day);
+    else selectedDays.add(day);
+    btn.classList.toggle('active', selectedDays.has(day));
+    setRruleRawFromState();
+  });
+  els.eventRrule.addEventListener('input', () => {
+    const raw = els.eventRrule.value.trim();
+    if (!raw) {
+      els.rruleRawError.hidden = true;
+      return;
+    }
+    applyRruleToControls(raw);
+  });
   els.copySecretBtn.addEventListener('click', copySecret);
   els.doneSecretBtn.addEventListener('click', hideSecret);
   els.closeSecretModal.addEventListener('click', hideSecret);
@@ -711,11 +990,14 @@
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    if (!els.secretModal.hidden) hideSecret();
+    if (!els.deleteCalModal.hidden) closeDeleteCalendarModal();
+    else if (!els.secretModal.hidden) hideSecret();
     else if (!els.eventModal.hidden) closeEventModal();
   });
   document.addEventListener('zcalendar:locale', () => {
     if (calendar) renderAll();
+    syncRruleControls();
+    site.translate(els.rruleEditor);
   });
 
   load();

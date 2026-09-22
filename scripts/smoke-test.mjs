@@ -49,6 +49,18 @@ function assert(condition, message) {
 async function main() {
   const slug = `smoke-${Date.now().toString(36)}`;
 
+  const takenCheck = await api(`/api/slug-check?slug=${slug}`);
+  assert(takenCheck.response.status === 200, "slug-check should 200");
+  assert(takenCheck.data.available === true, "fresh slug should be available");
+
+  const emptyCheck = await api("/api/slug-check?slug=");
+  assert(emptyCheck.response.status === 200, "empty slug-check should 200");
+  assert(emptyCheck.data.available === true && emptyCheck.data.generated === true, "empty slug-check generated");
+
+  const badCheck = await api("/api/slug-check?slug=Bad_Slug");
+  assert(badCheck.response.status === 200, "invalid slug-check should 200");
+  assert(badCheck.data.available === false && badCheck.data.code === "slug_invalid", "invalid slug format");
+
   const created = await api("/api/calendars", {
     method: "POST",
     body: { name: "Smoke Calendar", timezone: "Asia/Shanghai", slug },
@@ -61,6 +73,9 @@ async function main() {
   const firstSubToken = tokenFromUrl(created.data.subscriptionUrl);
   assert(manageToken && manageToken.length >= 40, "manage token missing");
   assert(firstSubToken && firstSubToken.length >= 40, "subscription token missing");
+
+  const takenAfter = await api(`/api/slug-check?slug=${slug}`);
+  assert(takenAfter.response.status === 200 && takenAfter.data.available === false, "slug should be taken after create");
 
   const exchange = await api(`/c/${slug}/manage?token=${manageToken}`);
   assert(exchange.response.status === 302, `token exchange should 302, got ${exchange.response.status}`);
@@ -258,6 +273,36 @@ async function main() {
   const foreign = await api(`/api/calendars/does-not-exist-slug`, { cookie: newSessionCookie });
   assert(foreign.response.status === 404 || foreign.response.status === 403, "unknown slug handled");
 
+  const noCsrfDelete = await api(`/api/calendars/${calendarId}`, {
+    method: "DELETE",
+    cookie: newSessionCookie,
+  });
+  assert(noCsrfDelete.response.status === 403, "delete calendar without CSRF must 403");
+
+  const readAfterDeletePrep = await api(`/api/calendars/${slug}`, { cookie: newSessionCookie });
+  assert(readAfterDeletePrep.response.status === 200, "calendar should still exist before delete");
+
+  const freshExchange = await api(`/c/${slug}/manage?token=${newToken}`);
+  const freshCookie = sessionCookieFrom(freshExchange.response) || newSessionCookie;
+  const freshRead = await api(`/api/calendars/${slug}`, { cookie: freshCookie });
+  assert(freshRead.response.status === 200, "fresh session read failed");
+  const freshNonce = freshRead.data.nonce;
+
+  const deletedCal = await api(`/api/calendars/${calendarId}`, {
+    method: "DELETE",
+    cookie: freshCookie,
+    csrf: freshNonce,
+  });
+  assert(deletedCal.response.status === 200, `delete calendar failed: ${JSON.stringify(deletedCal.data)}`);
+  assert(deletedCal.data.ok === true, "delete calendar ok flag");
+
+  const afterDelete = await api(`/api/calendars/${slug}`, { cookie: freshCookie });
+  assert(afterDelete.response.status === 401 || afterDelete.response.status === 404 || afterDelete.response.status === 403, "calendar read after delete should fail");
+  const slugFree = await api(`/api/slug-check?slug=${slug}`);
+  assert(slugFree.response.status === 200 && slugFree.data.available === true, "slug should be free after delete");
+  const icsGone = await fetch(icsUrl);
+  assert(icsGone.status === 401, "ics should 401 after calendar delete");
+
   console.log(
     JSON.stringify(
       {
@@ -279,6 +324,8 @@ async function main() {
         rrulePassthrough: true,
         allDayValueDate: true,
         deletedEventRemovedFromIcs: true,
+        slugCheck: true,
+        deletedCalendar: true,
       },
       null,
       2

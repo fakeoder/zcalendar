@@ -553,6 +553,23 @@ textarea.text-input {
   font-size: 13px;
 }
 
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 88%, #000);
+  border-color: color-mix(in srgb, var(--danger) 88%, #000);
+  color: #fff;
+}
+
+.btn.danger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .result-panel {
   margin-top: 22px;
   padding-top: 18px;
@@ -1679,6 +1696,96 @@ textarea.text-input {
 
 .settings-danger .section-head {
   margin-bottom: 8px;
+}
+
+.settings-danger .danger-head {
+  margin-top: 26px;
+}
+
+.manage-ics-hint {
+  margin-top: 14px;
+}
+
+.rrule-editor {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.rrule-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.rrule-freq {
+  min-width: 160px;
+}
+
+.rrule-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.rrule-interval-input {
+  width: 84px;
+}
+
+.rrule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rrule-days button {
+  min-width: 40px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rrule-days button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.rrule-ends {
+  display: grid;
+  gap: 8px;
+}
+
+.rrule-ends .check-field {
+  margin-bottom: 0;
+}
+
+.rrule-count-input {
+  width: 84px;
+}
+
+.rrule-until-input {
+  width: 160px;
+}
+
+.rrule-raw {
+  margin-top: 2px;
+}
+
+.rrule-raw .field-hint {
+  display: block;
+  margin-top: 8px;
 }
 
 .check-field {
