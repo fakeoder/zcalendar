@@ -1,0 +1,16 @@
+{
+  "name": "zcalendar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Create calendars and subscribe from Apple, Google, Outlook with Cloudflare Workers + D1.",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 execute zkraft --local --file=migrations/0001_create_tables.sql",
+    "db:remote": "wrangler d1 execute zkraft --remote --file=migrations/0001_create_tables.sql",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.29.0"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules
+.wrangler
+.wrangler-config/
+.chrome-*/
+snapshot-*.png
+dist
+dev.vars

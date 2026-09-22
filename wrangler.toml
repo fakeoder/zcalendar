@@ -1,0 +1,14 @@
+name = "zcalendar"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "none"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zkraft"
+database_id = "8af0a86e-6a55-4e71-ab9e-4e53135a7510"
+migrations_dir = "migrations"

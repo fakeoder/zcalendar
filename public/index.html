@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Zcalendar</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell topbar-inner">
+        <a class="brand" href="/"><span class="brand-mark">Z</span>Zcalendar</a>
+        <div class="topbar-actions">
+          <div class="lang-switch" role="group" aria-label="Language">
+            <button type="button" data-action="lang" data-set-lang="zh">中</button>
+            <button type="button" data-action="lang" data-set-lang="en">EN</button>
+          </div>
+          <button
+            type="button"
+            class="icon-btn"
+            data-action="theme"
+            data-i18n-title="toggleTheme"
+          >
+            <svg
+              class="icon-sun"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="m17.66 17.66 1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="m6.34 17.66-1.41 1.41" />
+              <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+            <svg
+              class="icon-moon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell upload-shell">
+      <section class="upload-card">
+        <header class="upload-header">
+          <h1 class="page-title" data-i18n="newCalendar"></h1>
+          <p class="upload-subtitle" data-i18n="createSubtitle"></p>
+        </header>
+
+        <form id="calForm" class="upload-form" novalidate>
+          <section class="form-step">
+            <div class="step-head">
+              <span class="step-number">1</span>
+              <span class="field-label" data-i18n="calName"></span>
+            </div>
+            <label class="field">
+              <input
+                id="nameInput"
+                class="text-input"
+                type="text"
+                maxlength="80"
+                required
+                autocomplete="off"
+                data-i18n-placeholder="namePlaceholder"
+              />
+              <span class="field-hint" data-i18n="nameHint"></span>
+            </label>
+          </section>
+
+          <section class="form-step">
+            <div class="step-head">
+              <span class="step-number">2</span>
+              <span class="field-label" data-i18n="timezone"></span>
+            </div>
+            <label class="field">
+              <select id="tzSelect" class="text-input"></select>
+              <span class="field-hint" data-i18n="tzHint"></span>
+            </label>
+          </section>
+
+          <details class="advanced-options">
+            <summary>
+              <span class="summary-copy">
+                <span class="summary-text" data-i18n="moreOptions"></span>
+                <span class="summary-meta" data-i18n="moreOptionsMeta"></span>
+              </span>
+              <svg
+                class="chevron"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <div class="advanced-body">
+              <label class="field">
+                <span class="field-label">
+                  <span data-i18n="customSlug"></span>
+                  <span class="optional-badge" data-i18n="optionalShort"></span>
+                </span>
+                <input
+                  id="slugInput"
+                  class="text-input"
+                  type="text"
+                  maxlength="40"
+                  autocomplete="off"
+                  spellcheck="false"
+                  data-i18n-placeholder="slugPlaceholder"
+                />
+                <span class="field-hint" data-i18n="slugHint"></span>
+              </label>
+            </div>
+          </details>
+
+          <button id="submitBtn" class="btn primary" type="submit">
+            <span id="submitLabel" data-i18n="createCalendar"></span>
+          </button>
+
+          <section id="resultPanel" class="result-panel" hidden>
+            <span class="badge success" data-i18n="created"></span>
+
+            <label class="field">
+              <span class="field-label" data-i18n="manageLink"></span>
+              <input id="resultManage" class="text-input" type="text" readonly />
+              <span id="manageWarning" class="field-hint warn-text" data-i18n="manageWarning"></span>
+            </label>
+            <div class="result-actions">
+              <button id="copyManageBtn" class="btn ghost" type="button">
+                <span data-i18n="copyLink"></span>
+              </button>
+              <button id="openManagerBtn" class="btn ghost" type="button">
+                <span data-i18n="openManager"></span>
+              </button>
+            </div>
+
+            <label class="field">
+              <span class="field-label" data-i18n="subscriptionUrl"></span>
+              <input id="resultIcs" class="text-input" type="text" readonly />
+              <span class="field-hint" data-i18n="subscriptionHint"></span>
+            </label>
+            <div class="result-actions">
+              <button id="copyIcsBtn" class="btn ghost" type="button">
+                <span id="copyIcsLabel" data-i18n="copyLink"></span>
+              </button>
+            </div>
+          </section>
+
+          <p id="formError" class="form-error" role="alert" hidden></p>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="shell">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <a class="brand" href="/"><span class="brand-mark">Z</span>Zcalendar</a>
+            <p class="muted footer-tagline" data-i18n="tagline"></p>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 Zcalendar</span>
+          <span class="muted" data-i18n="tagline"></span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="/site.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
