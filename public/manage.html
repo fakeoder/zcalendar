@@ -175,7 +175,7 @@
     </main>
 
     <div id="eventModal" class="modal-overlay" hidden>
-      <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
         <div class="modal-head">
           <h3 id="eventModalTitle" data-i18n="newEvent"></h3>
           <button id="closeEventModal" class="icon-btn small" type="button" aria-label="Close">
@@ -204,11 +204,11 @@
           <div class="field-grid">
             <label class="field">
               <span class="field-label" data-i18n="startsAt"></span>
-              <input id="eventStart" class="text-input" type="text" required />
+              <input id="eventStart" class="text-input" type="datetime-local" required />
             </label>
             <label class="field">
               <span class="field-label" data-i18n="endsAt"></span>
-              <input id="eventEnd" class="text-input" type="text" required />
+              <input id="eventEnd" class="text-input" type="datetime-local" required />
               <span id="endHint" class="field-hint" data-i18n="endExclusiveHint" hidden></span>
             </label>
           </div>

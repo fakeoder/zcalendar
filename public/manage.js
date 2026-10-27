@@ -197,6 +197,24 @@
     }).format(date);
   }
 
+  function timeRange(startIso, endIso, timeZone) {
+    return `${timeLabel(startIso, timeZone)}–${timeLabel(endIso, timeZone)}`;
+  }
+
+  function addHoursInput(local, hours) {
+    const date = new Date(`${local}:00Z`);
+    if (Number.isNaN(date.getTime())) return local;
+    date.setUTCHours(date.getUTCHours() + hours);
+    return date.toISOString().slice(0, 16);
+  }
+
+  function nextHourInput(local) {
+    const date = new Date(`${local}:00Z`);
+    if (Number.isNaN(date.getTime())) return local;
+    date.setUTCHours(date.getUTCHours() + 1, 0, 0, 0);
+    return date.toISOString().slice(0, 16);
+  }
+
   function formatWhen(ms) {
     if (!ms) return t('never');
     return new Intl.DateTimeFormat(locale(), {
@@ -290,9 +308,15 @@
         const local = utcToZoneInput(event.start_at, tz);
         dayKey = local.slice(0, 10);
         sortTime = local.slice(11, 16);
-        timeText = timeLabel(event.start_at, tz);
+        timeText = timeRange(event.start_at, event.end_at, tz);
       }
-      return { event, dayKey, sortTime, timeText };
+      const meta = [
+        event.location,
+        describeRrule(event.rrule) || event.rrule,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      return { event, dayKey, sortTime, timeText, meta };
     });
     decorated.sort((a, b) =>
       a.dayKey === b.dayKey
@@ -319,17 +343,19 @@
       const row = document.createElement('div');
       row.className = 'event-row';
       row.innerHTML = `
-        <span class="event-time">${escapeHtml(item.timeText)}</span>
-        <div class="event-body">
-          <div class="event-title">${escapeHtml(item.event.title)}</div>
-          ${
-            item.event.location || item.event.rrule
-              ? `<div class="event-meta">${escapeHtml(
-                  [item.event.location, item.event.rrule].filter(Boolean).join(' · ')
-                )}</div>`
-              : ''
-          }
-        </div>
+        <button type="button" class="event-main" data-action="edit" aria-label="${escapeHtml(
+          `${t('editEvent')}: ${item.event.title}`
+        )}">
+          <span class="event-time">${escapeHtml(item.timeText)}</span>
+          <span class="event-body">
+            <span class="event-title">${escapeHtml(item.event.title)}</span>
+            ${
+              item.meta
+                ? `<span class="event-meta">${escapeHtml(item.meta)}</span>`
+                : ''
+            }
+          </span>
+        </button>
         <div class="event-actions">
           <button type="button" class="icon-btn small" data-action="edit" title="${escapeHtml(
             t('editEvent')
@@ -338,9 +364,9 @@
             t('delete')
           )}">${iconTrash()}</button>
         </div>`;
-      row.querySelector('[data-action="edit"]').addEventListener('click', () =>
-        openEventModal(item.event)
-      );
+      row.querySelectorAll('[data-action="edit"]').forEach((button) => {
+        button.addEventListener('click', () => openEventModal(item.event));
+      });
       row
         .querySelector('[data-action="delete"]')
         .addEventListener('click', () => deleteEvent(item.event));
@@ -457,11 +483,26 @@
   }
 
   const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+  const WEEKDAY_DATES = {
+    MO: '2024-01-01',
+    TU: '2024-01-02',
+    WE: '2024-01-03',
+    TH: '2024-01-04',
+    FR: '2024-01-05',
+    SA: '2024-01-06',
+    SU: '2024-01-07',
+  };
   const FREQ_UNITS = {
     DAILY: 'rruleDays',
     WEEKLY: 'rruleWeeks',
     MONTHLY: 'rruleMonths',
     YEARLY: 'rruleYears',
+  };
+  const FREQ_LABELS = {
+    DAILY: 'repeatsDaily',
+    WEEKLY: 'repeatsWeekly',
+    MONTHLY: 'repeatsMonthly',
+    YEARLY: 'repeatsYearly',
   };
   let selectedDays = new Set();
 
@@ -529,6 +570,57 @@
       parts.push(`UNTIL=${state.until.replace(/-/g, '')}`);
     }
     return parts.join(';');
+  }
+
+  function weekdayLabel(day) {
+    const date = new Date(`${WEEKDAY_DATES[day]}T12:00:00Z`);
+    return new Intl.DateTimeFormat(locale(), {
+      weekday: 'short',
+      timeZone: 'UTC',
+    }).format(date);
+  }
+
+  function joinList(items) {
+    try {
+      return new Intl.ListFormat(locale(), {
+        style: 'short',
+        type: 'conjunction',
+      }).format(items);
+    } catch {
+      return items.join(', ');
+    }
+  }
+
+  function describeRrule(raw) {
+    const rawText = String(raw || '').trim();
+    const byday = rawText.match(/BYDAY=([^;]+)/i);
+    if (byday && /\d/.test(byday[1])) return '';
+    const supported = new Set(['FREQ', 'INTERVAL', 'BYDAY', 'COUNT', 'UNTIL']);
+    for (const part of rawText.split(';')) {
+      if (!part) continue;
+      const key = part.slice(0, part.indexOf('=')).toUpperCase();
+      if (!supported.has(key)) return '';
+    }
+    const state = parseRrule(rawText);
+    if (!state || !state.freq) return '';
+    let text =
+      state.interval > 1
+        ? t('repeatsEvery', {
+            n: state.interval,
+            unit: t(FREQ_UNITS[state.freq]),
+          })
+        : t(FREQ_LABELS[state.freq]);
+    if (state.freq === 'WEEKLY' && state.byday.length) {
+      text += t('repeatsOn', {
+        days: joinList(state.byday.map(weekdayLabel)),
+      });
+    }
+    if (state.endMode === 'count') {
+      text += ` · ${t('repeatsTimes', { n: state.count })}`;
+    } else if (state.endMode === 'until') {
+      text += ` · ${t('repeatsUntil', { date: state.until })}`;
+    }
+    return text;
   }
 
   function currentRruleState() {
@@ -630,7 +722,12 @@
 
   function openEventModal(event) {
     editingId = event ? event.id : null;
-    els.eventModalTitle.textContent = event ? t('editEvent') : t('newEvent');
+    const titleKey = event ? 'editEvent' : 'newEvent';
+    els.eventModalTitle.setAttribute('data-i18n', titleKey);
+    els.eventModalTitle.textContent = t(titleKey);
+    const saveKey = event ? 'saveChanges' : 'save';
+    els.saveEventLabel.setAttribute('data-i18n', saveKey);
+    els.saveEventLabel.textContent = t(saveKey);
     els.eventError.hidden = true;
     els.eventError.textContent = '';
 
@@ -653,9 +750,10 @@
       els.eventTitle.value = '';
       els.eventAllDay.checked = false;
       applyAllDayInputs();
-      const today = utcToZoneInput(new Date().toISOString(), calendar.timezone);
-      els.eventStart.value = today.slice(0, 10);
-      els.eventEnd.value = addOneDay(today.slice(0, 10));
+      const now = utcToZoneInput(new Date().toISOString(), calendar.timezone);
+      const start = nextHourInput(now);
+      els.eventStart.value = start;
+      els.eventEnd.value = addHoursInput(start, 1);
       els.eventLocation.value = '';
       els.eventDesc.value = '';
       resetRruleEditor('');
@@ -933,11 +1031,42 @@
   els.cancelEventBtn.addEventListener('click', closeEventModal);
   els.eventAllDay.addEventListener('change', () => {
     const allDay = els.eventAllDay.checked;
+    const prevStart = els.eventStart.value;
+    const prevEnd = els.eventEnd.value;
     applyAllDayInputs();
-    if (allDay && els.eventStart.value && els.eventStart.value.includes('T')) {
-      const date = els.eventStart.value.slice(0, 10);
-      els.eventStart.value = date;
-      els.eventEnd.value = addOneDay(date);
+    if (allDay) {
+      if (prevStart.includes('T')) {
+        const startDate = prevStart.slice(0, 10);
+        let endDate = prevEnd.includes('T') ? prevEnd.slice(0, 10) : prevEnd;
+        if (prevEnd.includes('T') && prevEnd.slice(11, 16) !== '00:00') {
+          endDate = addOneDay(endDate);
+        }
+        els.eventStart.value = startDate;
+        els.eventEnd.value =
+          endDate && endDate > startDate ? endDate : addOneDay(startDate);
+      }
+    } else if (prevStart && !prevStart.includes('T')) {
+      const startDate = prevStart;
+      let endDate = prevEnd || addOneDay(startDate);
+      if (endDate === addOneDay(startDate)) endDate = startDate;
+      const start = `${startDate}T09:00`;
+      let end = `${endDate}T10:00`;
+      if (end <= start) end = `${addOneDay(startDate)}T10:00`;
+      els.eventStart.value = start;
+      els.eventEnd.value = end;
+    }
+  });
+  els.eventStart.addEventListener('change', () => {
+    const start = els.eventStart.value;
+    if (!start) return;
+    if (els.eventAllDay.checked) {
+      if (!els.eventEnd.value || els.eventEnd.value <= start) {
+        els.eventEnd.value = addOneDay(start.slice(0, 10));
+      }
+    } else if (start.includes('T')) {
+      if (!els.eventEnd.value || els.eventEnd.value <= start) {
+        els.eventEnd.value = addHoursInput(start, 1);
+      }
     }
   });
   els.eventModal.addEventListener('click', (event) => {
